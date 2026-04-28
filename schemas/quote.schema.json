@@ -1,0 +1,53 @@
+{
+  "properties": {
+    "quote_id": {
+      "title": "Quote Id",
+      "type": "string"
+    },
+    "tag_id": {
+      "title": "Tag Id",
+      "type": "string"
+    },
+    "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+    },
+    "block_id": {
+      "title": "Block Id",
+      "type": "string"
+    },
+    "question": {
+      "title": "Question",
+      "type": "string"
+    },
+    "answer_quote": {
+      "title": "Answer Quote",
+      "type": "string"
+    },
+    "char_start": {
+      "title": "Char Start",
+      "type": "integer"
+    },
+    "char_end": {
+      "title": "Char End",
+      "type": "integer"
+    },
+    "confidence": {
+      "title": "Confidence",
+      "type": "number"
+    }
+  },
+  "required": [
+    "quote_id",
+    "tag_id",
+    "doc_id",
+    "block_id",
+    "question",
+    "answer_quote",
+    "char_start",
+    "char_end",
+    "confidence"
+  ],
+  "title": "QuoteRecord",
+  "type": "object"
+}

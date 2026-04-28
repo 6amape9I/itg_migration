@@ -1,0 +1,4 @@
+level: INFO
+rich_tracebacks: true
+log_file: data/99_logs/pipeline.log
+

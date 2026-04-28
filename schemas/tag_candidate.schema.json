@@ -1,0 +1,78 @@
+{
+  "properties": {
+    "candidate_id": {
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+    },
+    "surface": {
+      "title": "Surface",
+      "type": "string"
+    },
+    "normalized_surface": {
+      "title": "Normalized Surface",
+      "type": "string"
+    },
+    "entity_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entity Type"
+    },
+    "sources": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "evidence_block_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Block Ids",
+      "type": "array"
+    },
+    "evidence_texts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Texts",
+      "type": "array"
+    },
+    "score": {
+      "default": 0.0,
+      "title": "Score",
+      "type": "number"
+    },
+    "score_components": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Score Components",
+      "type": "object"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "doc_id",
+    "surface",
+    "normalized_surface"
+  ],
+  "title": "TagCandidate",
+  "type": "object"
+}

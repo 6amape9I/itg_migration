@@ -1,0 +1,40 @@
+{
+  "properties": {
+    "tag_id": {
+      "title": "Tag Id",
+      "type": "string"
+    },
+    "canonical_name": {
+      "title": "Canonical Name",
+      "type": "string"
+    },
+    "markdown": {
+      "title": "Markdown",
+      "type": "string"
+    },
+    "editorjs": {
+      "additionalProperties": true,
+      "title": "Editorjs",
+      "type": "object"
+    },
+    "source_snippet_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Snippet Ids",
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "tag_id",
+    "canonical_name",
+    "markdown"
+  ],
+  "title": "ArticleArtifact",
+  "type": "object"
+}

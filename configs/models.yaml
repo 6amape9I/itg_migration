@@ -1,0 +1,12 @@
+llm_profiles:
+  local_default:
+    backend: openai_compatible
+    base_url: http://localhost:8000/v1
+    model: PLACEHOLDER_LOCAL_MODEL
+    temperature: 0.0
+  external_default:
+    backend: openai_compatible
+    base_url: PLACEHOLDER_EXTERNAL_BASE_URL
+    model: PLACEHOLDER_EXTERNAL_MODEL
+    temperature: 0.0
+

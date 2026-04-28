@@ -1,0 +1,5 @@
+export:
+  dry_run: true
+  base_url: PLACEHOLDER_STEOS_BASE_URL
+  batch_size: 100
+

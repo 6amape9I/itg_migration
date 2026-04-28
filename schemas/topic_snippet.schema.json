@@ -1,0 +1,48 @@
+{
+  "properties": {
+    "snippet_id": {
+      "title": "Snippet Id",
+      "type": "string"
+    },
+    "tag_id": {
+      "title": "Tag Id",
+      "type": "string"
+    },
+    "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+    },
+    "block_id": {
+      "title": "Block Id",
+      "type": "string"
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    },
+    "relevance": {
+      "title": "Relevance",
+      "type": "number"
+    },
+    "extraction_method": {
+      "title": "Extraction Method",
+      "type": "string"
+    },
+    "quote_candidate": {
+      "default": false,
+      "title": "Quote Candidate",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "snippet_id",
+    "tag_id",
+    "doc_id",
+    "block_id",
+    "text",
+    "relevance",
+    "extraction_method"
+  ],
+  "title": "TopicSnippet",
+  "type": "object"
+}

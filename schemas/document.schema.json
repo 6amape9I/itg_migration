@@ -1,0 +1,77 @@
+{
+  "properties": {
+    "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+    },
+    "source_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Id"
+    },
+    "source_row": {
+      "title": "Source Row",
+      "type": "integer"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "raw_content": {
+      "title": "Raw Content",
+      "type": "string"
+    },
+    "content_hash": {
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "raw_length": {
+      "title": "Raw Length",
+      "type": "integer"
+    },
+    "has_html": {
+      "title": "Has Html",
+      "type": "boolean"
+    },
+    "ingest_status": {
+      "title": "Ingest Status",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "doc_id",
+    "source_row",
+    "name",
+    "raw_content",
+    "content_hash",
+    "raw_length",
+    "has_html",
+    "ingest_status"
+  ],
+  "title": "DocumentRecord",
+  "type": "object"
+}

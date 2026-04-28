@@ -1,0 +1,8 @@
+tagging:
+  auto_accept_score: 0.85
+  review_score: 0.6
+normalization:
+  synonym_candidate_score: 0.82
+quotes:
+  min_exact_quote_chars: 20
+
