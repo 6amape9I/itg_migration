@@ -45,7 +45,8 @@ class ProjectPaths:
             config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
 
         def resolve(key: str, default: str) -> Path:
-            return root_path / config.get(key, default)
+            configured = Path(config.get(key, default))
+            return configured if configured.is_absolute() else root_path / configured
 
         return cls(
             root=root_path,
@@ -61,10 +62,19 @@ class ProjectPaths:
     def ensure_data_dirs(self) -> list[Path]:
         created: list[Path] = []
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        keep = self.data_dir / ".gitkeep"
-        keep.touch(exist_ok=True)
-        for subdir in DATA_SUBDIRS:
-            path = self.data_dir / subdir
+        if self.data_dir == self.root / "data":
+            keep = self.data_dir / ".gitkeep"
+            keep.touch(exist_ok=True)
+        configured_dirs = {
+            self.raw_dir,
+            self.ingested_dir,
+            self.normalized_dir,
+            self.reports_dir,
+            self.cache_dir,
+            self.logs_dir,
+        }
+        stage_dirs = configured_dirs | {self.data_dir / subdir for subdir in DATA_SUBDIRS}
+        for path in sorted(stage_dirs):
             path.mkdir(parents=True, exist_ok=True)
             created.append(path)
         (self.normalized_dir / "by_doc").mkdir(parents=True, exist_ok=True)

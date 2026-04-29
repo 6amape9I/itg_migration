@@ -1,8 +1,8 @@
-data_dir: data
-raw_dir: data/00_raw
-ingested_dir: data/01_ingested
-normalized_dir: data/02_normalized
-reports_dir: data/90_reports
-cache_dir: data/99_cache
-logs_dir: data/99_logs
-
+storage_root: /mnt/storage/projects/PycharmProjects/itg_migrat
+data_dir: /mnt/storage/projects/PycharmProjects/itg_migrat
+raw_dir: /mnt/storage/projects/PycharmProjects/itg_migrat/00_raw
+ingested_dir: /mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested
+normalized_dir: /mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized
+reports_dir: /mnt/storage/projects/PycharmProjects/itg_migrat/90_reports
+cache_dir: /mnt/storage/projects/PycharmProjects/itg_migrat/99_cache
+logs_dir: /mnt/storage/projects/PycharmProjects/itg_migrat/99_logs

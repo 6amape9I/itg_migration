@@ -39,19 +39,27 @@ make setup
 - `src/itg_kb/` - пакет pipeline, схемы, IO, preprocessing, orchestration и CLI.
 - `schemas/` - JSON Schema для основных Pydantic-моделей.
 - `tests/` - synthetic fixtures и тесты S00/S01.
-- `data/` - локальные входы и generated artifacts.
+- `docs/` - отчёты исполнителя, чек-листы и обратная связь для архитектурного ревью.
 
 ## Данные
+
+Данные и generated artifacts больше не хранятся в папке `data/` внутри проекта. Stage-директории лежат по глобальному storage path:
+
+```text
+/mnt/storage/projects/PycharmProjects/itg_migrat
+```
 
 Положите исходную выгрузку в:
 
 ```text
-data/00_raw/documents.csv
+/mnt/storage/projects/PycharmProjects/itg_migrat/00_raw/documents.csv
 ```
 
 Полезные поля: `name`, `content`, опционально `description`. Дополнительные поля сохраняются в `metadata`.
 
-`data/` не коммитится, кроме `data/.gitkeep`: в этой папке лежат пользовательские данные и производные артефакты pipeline.
+Ожидаемый объём выгрузки - около 16 000 документов. Для крупных документов CSV loader увеличивает лимит размера одного поля до 256 MiB, чтобы длинный `content` не ломал ingest на стандартном лимите Python `csv`.
+
+Папки `00_raw/`, `01_ingested/`, `02_normalized/`, `03_tagging/`, `04_tag_normalization/`, `05_topic_corpora/`, `06_articles/`, `07_quotes/`, `08_hierarchy/`, `09_steos_export/`, `10_graph/`, `90_reports/`, `99_cache/`, `99_logs/` игнорируются Git, потому что содержат пользовательские данные и производные артефакты.
 
 ## Запуск
 
@@ -64,7 +72,13 @@ python -m itg_kb.cli init-dirs
 Импортировать CSV:
 
 ```bash
-python -m itg_kb.cli ingest --input data/00_raw/documents.csv
+python -m itg_kb.cli ingest
+```
+
+Или явно:
+
+```bash
+python -m itg_kb.cli ingest --input /mnt/storage/projects/PycharmProjects/itg_migrat/00_raw/documents.csv
 ```
 
 Нормализовать документы после ingest:
@@ -89,22 +103,28 @@ Smoke-run на синтетическом fixture:
 python scripts/smoke_run.py
 ```
 
+Smoke-run использует временную директорию и после успешного запуска не оставляет stage artifacts в рабочем дереве.
+
 ## Результаты
 
 S00 пишет:
 
-- `data/01_ingested/documents.parquet`
-- `data/01_ingested/documents.jsonl`
-- `data/01_ingested/manifest.jsonl`
-- `data/90_reports/S00_ingest_report.json`
+- `/mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.parquet`
+- `/mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.jsonl`
+- `/mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/manifest.jsonl`
+- `/mnt/storage/projects/PycharmProjects/itg_migrat/90_reports/S00_ingest_report.json`
 
 S01 пишет:
 
-- `data/02_normalized/documents_normalized.parquet`
-- `data/02_normalized/blocks.parquet`
-- `data/02_normalized/by_doc/<doc_id>.normalized.json`
-- `data/02_normalized/by_doc/<doc_id>.md`
-- `data/90_reports/S01_normalization_report.json`
+- `/mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/documents_normalized.parquet`
+- `/mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/blocks.parquet`
+- `/mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/by_doc/<doc_id>.normalized.json`
+- `/mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/by_doc/<doc_id>.md`
+- `/mnt/storage/projects/PycharmProjects/itg_migrat/90_reports/S01_normalization_report.json`
+
+## Исполнительская отчётность
+
+После каждого набора правок исполнитель пишет отчёт в `docs/reports/`: что изменено, какой чек-лист выполнен, какие проверки прошли, какие риски или вопросы остаются для архитектора.
 
 ## Проверки
 

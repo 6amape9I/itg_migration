@@ -1,4 +1,5 @@
 /documents.csv
+/.gitkeep
 /.idea/.gitignore
 *.iml
 *.xml
@@ -19,3 +20,18 @@ build/
 data/**
 !data/
 !data/.gitkeep
+
+/00_raw/
+/01_ingested/
+/02_normalized/
+/03_tagging/
+/04_tag_normalization/
+/05_topic_corpora/
+/06_articles/
+/07_quotes/
+/08_hierarchy/
+/09_steos_export/
+/10_graph/
+/90_reports/
+/99_cache/
+/99_logs/

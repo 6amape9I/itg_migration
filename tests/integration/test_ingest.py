@@ -1,3 +1,4 @@
+import csv
 from pathlib import Path
 
 import pandas as pd
@@ -24,3 +25,18 @@ def test_ingest_stable_doc_ids_and_empty_content(tmp_path: Path) -> None:
     assert first["doc_id"].tolist() == second["doc_id"].tolist()
     empty = second[second["ingest_status"] == "empty_content"]
     assert len(empty) == 1
+
+
+def test_ingest_accepts_large_content_field(tmp_path: Path) -> None:
+    source = tmp_path / "large_content.csv"
+    large_content = "А" * 150_000
+    with source.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["name", "content"])
+        writer.writeheader()
+        writer.writerow({"name": "Большой документ", "content": large_content})
+
+    report = run_ingest(source, project_root=tmp_path)
+    documents = pd.read_parquet(tmp_path / "data/01_ingested/documents.parquet")
+
+    assert report["status"] == "ok"
+    assert documents.loc[0, "raw_length"] == len(large_content)

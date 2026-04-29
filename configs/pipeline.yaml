@@ -1,21 +1,25 @@
+source:
+  expected_documents_approx: 16000
+  csv_field_size_limit_mb: 256
+
 stages:
   S00:
     name: ingest_csv
     enabled: true
-    input: data/00_raw/documents.csv
+    input: /mnt/storage/projects/PycharmProjects/itg_migrat/00_raw/documents.csv
     outputs:
-      - data/01_ingested/documents.parquet
-      - data/01_ingested/documents.jsonl
-      - data/01_ingested/manifest.jsonl
-      - data/90_reports/S00_ingest_report.json
+      - /mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.parquet
+      - /mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.jsonl
+      - /mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/manifest.jsonl
+      - /mnt/storage/projects/PycharmProjects/itg_migrat/90_reports/S00_ingest_report.json
   S01:
     name: normalize_documents
     enabled: true
-    input: data/01_ingested/documents.parquet
+    input: /mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.parquet
     outputs:
-      - data/02_normalized/documents_normalized.parquet
-      - data/02_normalized/blocks.parquet
-      - data/90_reports/S01_normalization_report.json
+      - /mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/documents_normalized.parquet
+      - /mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/blocks.parquet
+      - /mnt/storage/projects/PycharmProjects/itg_migrat/90_reports/S01_normalization_report.json
   S02:
     name: primary_tag_candidates
     enabled: false
@@ -43,4 +47,3 @@ stages:
   S10:
     name: qa_reports
     enabled: false
-

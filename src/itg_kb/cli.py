@@ -9,6 +9,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from itg_kb.core.paths import ProjectPaths
 from itg_kb.orchestration.stages import (
     pipeline_status,
     run_ingest,
@@ -29,13 +30,15 @@ def init_dirs() -> None:
 
 @app.command("ingest")
 def ingest(
-    input_path: Path = typer.Option(
-        Path("data/00_raw/documents.csv"),
+    input_path: Path | None = typer.Option(
+        None,
         "--input",
         "-i",
-        help="Path to source documents.csv.",
+        help="Path to source documents.csv. Defaults to configured raw_dir/documents.csv.",
     ),
 ) -> None:
+    if input_path is None:
+        input_path = ProjectPaths.from_root(".").raw_dir / "documents.csv"
     report = run_ingest(input_path)
     console.print_json(json.dumps(report, ensure_ascii=False))
     if report["status"] == "failed":

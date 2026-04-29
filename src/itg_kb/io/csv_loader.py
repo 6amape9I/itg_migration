@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import csv
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+DEFAULT_CSV_FIELD_SIZE_LIMIT = 256 * 1024 * 1024
 
 
 @dataclass
@@ -15,9 +18,12 @@ class CsvLoadResult:
     errors: list[dict[str, Any]] = field(default_factory=list)
 
 
-def load_csv_rows(path: Path | str) -> CsvLoadResult:
+def load_csv_rows(
+    path: Path | str, *, field_size_limit: int = DEFAULT_CSV_FIELD_SIZE_LIMIT
+) -> CsvLoadResult:
     source = Path(path)
     result = CsvLoadResult()
+    _set_csv_field_size_limit(field_size_limit)
     try:
         with source.open("r", encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle)
@@ -36,3 +42,13 @@ def load_csv_rows(path: Path | str) -> CsvLoadResult:
     except Exception as exc:
         result.errors.append({"source_row": None, "error": type(exc).__name__, "message": str(exc)})
     return result
+
+
+def _set_csv_field_size_limit(field_size_limit: int) -> None:
+    limit = max(field_size_limit, csv.field_size_limit())
+    while True:
+        try:
+            csv.field_size_limit(limit)
+            return
+        except OverflowError:
+            limit = min(limit // 10, sys.maxsize)

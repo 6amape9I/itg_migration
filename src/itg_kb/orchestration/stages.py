@@ -14,7 +14,7 @@ from itg_kb.core.hashing import content_hash
 from itg_kb.core.ids import make_doc_id
 from itg_kb.core.paths import ProjectPaths
 from itg_kb.core.run_context import utc_now_iso
-from itg_kb.io.csv_loader import load_csv_rows
+from itg_kb.io.csv_loader import DEFAULT_CSV_FIELD_SIZE_LIMIT, load_csv_rows
 from itg_kb.io.jsonl import write_jsonl
 from itg_kb.io.parquet import write_parquet_records
 from itg_kb.orchestration.checkpoints import existing_outputs, missing_outputs
@@ -130,6 +130,7 @@ def run_ingest(input_path: Path | str, project_root: Path | str = ".") -> dict[s
         "empty_content_rows": empty_content_rows,
         "failed_rows": failed_rows,
         "errors_sample": errors[:20],
+        "csv_field_size_limit": DEFAULT_CSV_FIELD_SIZE_LIMIT,
         "outputs": outputs,
     }
     write_json(paths.reports_dir / "S00_ingest_report.json", report)
