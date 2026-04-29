@@ -46,13 +46,13 @@ make setup
 Данные и generated artifacts больше не хранятся в папке `data/` внутри проекта. Stage-директории лежат по глобальному storage path:
 
 ```text
-/mnt/storage/projects/PycharmProjects/itg_migrat
+/mnt/storage/datasets/itg_datasets
 ```
 
 Положите исходную выгрузку в:
 
 ```text
-/mnt/storage/projects/PycharmProjects/itg_migrat/00_raw/documents.csv
+/mnt/storage/datasets/itg_datasets/00_raw/documents.csv
 ```
 
 Полезные поля: `name`, `content`, опционально `description`. Дополнительные поля сохраняются в `metadata`.
@@ -78,7 +78,7 @@ python -m itg_kb.cli ingest
 Или явно:
 
 ```bash
-python -m itg_kb.cli ingest --input /mnt/storage/projects/PycharmProjects/itg_migrat/00_raw/documents.csv
+python -m itg_kb.cli ingest --input /mnt/storage/datasets/itg_datasets/00_raw/documents.csv
 ```
 
 Нормализовать документы после ingest:
@@ -109,18 +109,18 @@ Smoke-run использует временную директорию и пос
 
 S00 пишет:
 
-- `/mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.parquet`
-- `/mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.jsonl`
-- `/mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/manifest.jsonl`
-- `/mnt/storage/projects/PycharmProjects/itg_migrat/90_reports/S00_ingest_report.json`
+- `/mnt/storage/datasets/itg_datasets/01_ingested/documents.parquet`
+- `/mnt/storage/datasets/itg_datasets/01_ingested/documents.jsonl`
+- `/mnt/storage/datasets/itg_datasets/01_ingested/manifest.jsonl`
+- `/mnt/storage/datasets/itg_datasets/90_reports/S00_ingest_report.json`
 
 S01 пишет:
 
-- `/mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/documents_normalized.parquet`
-- `/mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/blocks.parquet`
-- `/mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/by_doc/<doc_id>.normalized.json`
-- `/mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/by_doc/<doc_id>.md`
-- `/mnt/storage/projects/PycharmProjects/itg_migrat/90_reports/S01_normalization_report.json`
+- `/mnt/storage/datasets/itg_datasets/02_normalized/documents_normalized.parquet`
+- `/mnt/storage/datasets/itg_datasets/02_normalized/blocks.parquet`
+- `/mnt/storage/datasets/itg_datasets/02_normalized/by_doc/<doc_id>.normalized.json`
+- `/mnt/storage/datasets/itg_datasets/02_normalized/by_doc/<doc_id>.md`
+- `/mnt/storage/datasets/itg_datasets/90_reports/S01_normalization_report.json`
 
 ## Исполнительская отчётность
 

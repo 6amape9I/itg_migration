@@ -25,3 +25,22 @@ def test_malformed_html_does_not_crash() -> None:
     blocks = extract_blocks("doc_test", "<h1>Кривой HTML<h2>Раздел<p>Текст")
     assert blocks
     assert any(block.type == "heading" for block in blocks)
+
+
+def test_extracts_text_nodes_inside_div_without_paragraphs() -> None:
+    html = (FIXTURES / "html_document_div_text.html").read_text(encoding="utf-8")
+    blocks = extract_blocks("doc_test", html, plain_text=plain_text(html))
+    texts = [block.text for block in blocks]
+
+    assert "Текст прямо внутри div без отдельного paragraph." in texts
+    assert "Дополнительный текст внутри section без p." in texts
+
+
+def test_realish_malformed_html_keeps_useful_text() -> None:
+    html = (FIXTURES / "html_document_broken_realish.html").read_text(encoding="utf-8")
+    blocks = extract_blocks("doc_test", html, plain_text=plain_text(html))
+    all_text = "\n".join(block.text for block in blocks)
+
+    assert blocks
+    assert "Важно перед приёмом препарата проверить назначение врача" in all_text
+    assert any(block.type == "table" for block in blocks)

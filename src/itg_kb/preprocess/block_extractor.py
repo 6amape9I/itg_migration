@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from bs4.element import Tag
+from bs4.element import NavigableString, Tag
 
 from itg_kb.core.ids import make_block_id, slugify
 from itg_kb.preprocess.html_cleaner import clean_soup, has_html_markup, normalize_whitespace
@@ -62,19 +62,24 @@ def _extract_html_blocks(
     heading_stack: list[tuple[int, str]] = []
     cursor = 0
 
-    for tag in body.find_all(BLOCK_TAGS):
-        if _has_block_parent(tag):
-            continue
-        block_type, text, level, metadata = _block_from_tag(tag)
+    def append_block(
+        block_type: str,
+        text: str,
+        *,
+        html: str | None = None,
+        level: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        nonlocal cursor, heading_stack
         if not text:
-            continue
+            return
         parent_path = ["root"] + [item[1] for item in heading_stack]
         block = _make_block(
             doc_id,
             len(blocks) + 1,
             block_type,
             text,
-            html=str(tag),
+            html=html,
             level=level,
             parent_path=parent_path,
             metadata=metadata,
@@ -90,15 +95,32 @@ def _extract_html_blocks(
                 if item_level < level
             ]
             heading_stack.append((level, f"h{level}:{slugify(text)}"))
+
+    def visit(node: Tag) -> None:
+        for child in node.children:
+            if isinstance(child, NavigableString):
+                text = normalize_whitespace(str(child))
+                if text:
+                    append_block(
+                        "paragraph",
+                        text,
+                        metadata={
+                            "source": "text_node",
+                            "container": getattr(child.parent, "name", None),
+                        },
+                    )
+                continue
+            if not isinstance(child, Tag):
+                continue
+            tag_name = child.name.lower()
+            if tag_name in BLOCK_TAGS:
+                block_type, text, level, metadata = _block_from_tag(child)
+                append_block(block_type, text, html=str(child), level=level, metadata=metadata)
+            else:
+                visit(child)
+
+    visit(body)
     return blocks
-
-
-def _has_block_parent(tag: Tag) -> bool:
-    for parent in tag.parents:
-        parent_name = getattr(parent, "name", None)
-        if parent_name in BLOCK_TAGS:
-            return True
-    return False
 
 
 def _block_from_tag(tag: Tag) -> tuple[str, str, int | None, dict[str, Any]]:

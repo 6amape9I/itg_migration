@@ -44,19 +44,26 @@ class ProjectPaths:
         if config_path.exists():
             config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
 
-        def resolve(key: str, default: str) -> Path:
-            configured = Path(config.get(key, default))
+        def resolve_value(value: str | Path) -> Path:
+            configured = Path(value)
             return configured if configured.is_absolute() else root_path / configured
+
+        data_dir = resolve_value(config.get("data_dir", "data"))
+
+        def resolve_stage(key: str, subdir: str) -> Path:
+            if key in config and config[key] not in (None, ""):
+                return resolve_value(config[key])
+            return data_dir / subdir
 
         return cls(
             root=root_path,
-            data_dir=resolve("data_dir", "data"),
-            raw_dir=resolve("raw_dir", "data/00_raw"),
-            ingested_dir=resolve("ingested_dir", "data/01_ingested"),
-            normalized_dir=resolve("normalized_dir", "data/02_normalized"),
-            reports_dir=resolve("reports_dir", "data/90_reports"),
-            cache_dir=resolve("cache_dir", "data/99_cache"),
-            logs_dir=resolve("logs_dir", "data/99_logs"),
+            data_dir=data_dir,
+            raw_dir=resolve_stage("raw_dir", "00_raw"),
+            ingested_dir=resolve_stage("ingested_dir", "01_ingested"),
+            normalized_dir=resolve_stage("normalized_dir", "02_normalized"),
+            reports_dir=resolve_stage("reports_dir", "90_reports"),
+            cache_dir=resolve_stage("cache_dir", "99_cache"),
+            logs_dir=resolve_stage("logs_dir", "99_logs"),
         )
 
     def ensure_data_dirs(self) -> list[Path]:

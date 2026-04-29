@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,30 @@ from itg_kb.schemas.blocks import DocumentBlock
 from itg_kb.schemas.documents import DocumentRecord, NormalizedDocument
 
 SOURCE_ID_COLUMNS = ("source_id", "id", "document_id", "uuid")
+S00_DOCUMENT_COLUMNS = {
+    "doc_id",
+    "source_row",
+    "name",
+    "raw_content",
+    "content_hash",
+    "raw_length",
+    "has_html",
+    "ingest_status",
+    "metadata",
+}
+S01_BLOCK_COLUMNS = {
+    "block_id",
+    "doc_id",
+    "order",
+    "type",
+    "text",
+    "html",
+    "level",
+    "parent_path",
+    "char_start",
+    "char_end",
+    "metadata",
+}
 
 
 def run_init_dirs(project_root: Path | str = ".") -> list[Path]:
@@ -269,18 +294,175 @@ def validate_stage(stage: str, project_root: Path | str = ".") -> dict[str, Any]
     paths = ProjectPaths.from_root(project_root)
     normalized_stage = stage.upper()
     if normalized_stage == "S00":
-        outputs = paths.s00_outputs
+        return _validate_s00(paths)
     elif normalized_stage == "S01":
-        outputs = paths.s01_outputs
-    else:
-        return {"stage": normalized_stage, "valid": False, "missing": [], "error": "Unknown stage"}
-    missing = missing_outputs(outputs)
+        return _validate_s01(paths)
     return {
         "stage": normalized_stage,
-        "valid": not missing,
+        "valid": False,
+        "missing": [],
+        "errors": [{"error": "UnknownStage", "message": f"Unknown stage: {stage}"}],
+        "outputs": [],
+    }
+
+
+def _validate_s00(paths: ProjectPaths) -> dict[str, Any]:
+    outputs = paths.s00_outputs
+    missing = missing_outputs(outputs)
+    errors: list[dict[str, Any]] = []
+
+    documents_path = paths.ingested_dir / "documents.parquet"
+    documents = _read_parquet_for_validation(documents_path, errors)
+    if documents is not None:
+        _validate_columns(documents_path, documents, S00_DOCUMENT_COLUMNS, errors)
+
+    _validate_readable(paths.ingested_dir / "documents.jsonl", _read_jsonl_file, errors)
+    _validate_readable(paths.ingested_dir / "manifest.jsonl", _read_jsonl_file, errors)
+    _validate_readable(paths.reports_dir / "S00_ingest_report.json", _read_json_file, errors)
+
+    return _validation_result("S00", outputs, missing, errors)
+
+
+def _validate_s01(paths: ProjectPaths) -> dict[str, Any]:
+    outputs = paths.s01_outputs
+    missing = missing_outputs(outputs)
+    errors: list[dict[str, Any]] = []
+
+    normalized_path = paths.normalized_dir / "documents_normalized.parquet"
+    blocks_path = paths.normalized_dir / "blocks.parquet"
+    ingested_path = paths.ingested_dir / "documents.parquet"
+
+    normalized = _read_parquet_for_validation(normalized_path, errors)
+    blocks = _read_parquet_for_validation(blocks_path, errors)
+    ingested = _read_parquet_for_validation(ingested_path, errors)
+
+    if not ingested_path.exists():
+        errors.append(
+            {
+                "artifact": str(ingested_path),
+                "error": "MissingDependency",
+                "message": "S01 validation requires S00 documents.parquet",
+            }
+        )
+    if blocks is not None:
+        _validate_columns(blocks_path, blocks, S01_BLOCK_COLUMNS, errors)
+    if normalized is not None and ingested is not None:
+        _validate_normalized_coverage(ingested_path, normalized_path, ingested, normalized, errors)
+
+    _validate_readable(paths.reports_dir / "S01_normalization_report.json", _read_json_file, errors)
+
+    return _validation_result("S01", outputs, missing, errors)
+
+
+def _validation_result(
+    stage: str, outputs: list[Path], missing: list[str], errors: list[dict[str, Any]]
+) -> dict[str, Any]:
+    return {
+        "stage": stage,
+        "valid": not missing and not errors,
         "missing": missing,
+        "errors": errors,
         "outputs": [str(path) for path in outputs],
     }
+
+
+def _read_parquet_for_validation(path: Path, errors: list[dict[str, Any]]) -> pd.DataFrame | None:
+    if not path.exists():
+        return None
+    try:
+        return pd.read_parquet(path)
+    except Exception as exc:
+        errors.append(_artifact_error(path, "UnreadableParquet", exc))
+        return None
+
+
+def _validate_readable(
+    path: Path, reader: Callable[[Path], object], errors: list[dict[str, Any]]
+) -> None:
+    if not path.exists():
+        return
+    try:
+        reader(path)
+    except Exception as exc:
+        errors.append(_artifact_error(path, "UnreadableArtifact", exc))
+
+
+def _validate_columns(
+    path: Path,
+    dataframe: pd.DataFrame,
+    required_columns: set[str],
+    errors: list[dict[str, Any]],
+) -> None:
+    missing_columns = sorted(required_columns - set(dataframe.columns))
+    if missing_columns:
+        errors.append(
+            {
+                "artifact": str(path),
+                "error": "MissingColumns",
+                "message": ", ".join(missing_columns),
+            }
+        )
+
+
+def _validate_normalized_coverage(
+    ingested_path: Path,
+    normalized_path: Path,
+    ingested: pd.DataFrame,
+    normalized: pd.DataFrame,
+    errors: list[dict[str, Any]],
+) -> None:
+    if "doc_id" not in ingested.columns:
+        errors.append(
+            {
+                "artifact": str(ingested_path),
+                "error": "MissingColumns",
+                "message": "doc_id",
+            }
+        )
+        return
+    if "doc_id" not in normalized.columns:
+        errors.append(
+            {
+                "artifact": str(normalized_path),
+                "error": "MissingColumns",
+                "message": "doc_id",
+            }
+        )
+        return
+
+    ingested_doc_ids = set(ingested["doc_id"].dropna().astype(str))
+    normalized_doc_ids = set(normalized["doc_id"].dropna().astype(str))
+    missing_doc_ids = sorted(ingested_doc_ids - normalized_doc_ids)
+    if missing_doc_ids:
+        errors.append(
+            {
+                "artifact": str(normalized_path),
+                "error": "MissingNormalizedDocuments",
+                "message": f"{len(missing_doc_ids)} ingested doc_id values are not normalized",
+                "sample": missing_doc_ids[:20],
+            }
+        )
+
+
+def _read_json_file(path: Path) -> object:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _read_jsonl_file(path: Path) -> list[object]:
+    records: list[object] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSONL at line {line_number}: {exc}") from exc
+    return records
+
+
+def _artifact_error(path: Path, error: str, exc: Exception) -> dict[str, Any]:
+    return {"artifact": str(path), "error": error, "message": str(exc)}
 
 
 def _resolve_path(root: Path, path: Path | str) -> Path:

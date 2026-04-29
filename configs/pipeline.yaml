@@ -6,20 +6,20 @@ stages:
   S00:
     name: ingest_csv
     enabled: true
-    input: /mnt/storage/projects/PycharmProjects/itg_migrat/00_raw/documents.csv
+    input: /mnt/storage/datasets/itg_datasets/00_raw/documents.csv
     outputs:
-      - /mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.parquet
-      - /mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.jsonl
-      - /mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/manifest.jsonl
-      - /mnt/storage/projects/PycharmProjects/itg_migrat/90_reports/S00_ingest_report.json
+      - /mnt/storage/datasets/itg_datasets/01_ingested/documents.parquet
+      - /mnt/storage/datasets/itg_datasets/01_ingested/documents.jsonl
+      - /mnt/storage/datasets/itg_datasets/01_ingested/manifest.jsonl
+      - /mnt/storage/datasets/itg_datasets/90_reports/S00_ingest_report.json
   S01:
     name: normalize_documents
     enabled: true
-    input: /mnt/storage/projects/PycharmProjects/itg_migrat/01_ingested/documents.parquet
+    input: /mnt/storage/datasets/itg_datasets/01_ingested/documents.parquet
     outputs:
-      - /mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/documents_normalized.parquet
-      - /mnt/storage/projects/PycharmProjects/itg_migrat/02_normalized/blocks.parquet
-      - /mnt/storage/projects/PycharmProjects/itg_migrat/90_reports/S01_normalization_report.json
+      - /mnt/storage/datasets/itg_datasets/02_normalized/documents_normalized.parquet
+      - /mnt/storage/datasets/itg_datasets/02_normalized/blocks.parquet
+      - /mnt/storage/datasets/itg_datasets/90_reports/S01_normalization_report.json
   S02:
     name: primary_tag_candidates
     enabled: false
