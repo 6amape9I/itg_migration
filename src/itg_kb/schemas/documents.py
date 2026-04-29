@@ -34,6 +34,10 @@ class NormalizedDocument(BaseModel):
     plain_text_length: int = 0
     markdown_length: int = 0
     text_preservation_ratio: float | None = None
+    source_format: str = ""
+    raw_format_detected: str = ""
+    useful_text_length: int = 0
+    useful_text_ratio: float | None = None
     heading_count: int = 0
     paragraph_count: int = 0
     list_item_count: int = 0

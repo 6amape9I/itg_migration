@@ -67,6 +67,33 @@
       "default": null,
       "title": "Text Preservation Ratio"
     },
+    "source_format": {
+      "default": "",
+      "title": "Source Format",
+      "type": "string"
+    },
+    "raw_format_detected": {
+      "default": "",
+      "title": "Raw Format Detected",
+      "type": "string"
+    },
+    "useful_text_length": {
+      "default": 0,
+      "title": "Useful Text Length",
+      "type": "integer"
+    },
+    "useful_text_ratio": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Useful Text Ratio"
+    },
     "heading_count": {
       "default": 0,
       "title": "Heading Count",

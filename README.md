@@ -84,7 +84,7 @@ python -m itg_kb.cli ingest --input /mnt/storage/datasets/itg_datasets/00_raw/do
 Нормализовать документы после ingest:
 
 ```bash
-python -m itg_kb.cli normalize
+`python -m itg_kb.cli normalize`
 ```
 
 Проверить состояние:

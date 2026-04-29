@@ -23,6 +23,13 @@ from itg_kb.io.parquet import write_parquet_records
 from itg_kb.orchestration.checkpoints import existing_outputs, missing_outputs
 from itg_kb.orchestration.reports import write_json
 from itg_kb.preprocess.block_extractor import extract_blocks
+from itg_kb.preprocess.editorjs_parser import (
+    detect_content_format,
+    extract_editorjs_blocks,
+    extract_editorjs_useful_text,
+    find_json_markers,
+    has_json_markers,
+)
 from itg_kb.preprocess.html_cleaner import has_html_markup, normalize_whitespace, plain_text
 from itg_kb.preprocess.markdown_renderer import render_blocks_markdown, render_markdown
 from itg_kb.schemas.blocks import DocumentBlock
@@ -69,6 +76,10 @@ S01_DOCUMENT_COLUMNS = {
     "plain_text_length",
     "markdown_length",
     "text_preservation_ratio",
+    "source_format",
+    "raw_format_detected",
+    "useful_text_length",
+    "useful_text_ratio",
     "heading_count",
     "paragraph_count",
     "list_item_count",
@@ -316,8 +327,12 @@ def run_normalize(
         try:
             raw_content = _safe_str(row.get("raw_content"))
             raw_length = _safe_int(row.get("raw_length"), default=len(raw_content))
+            raw_format_detected = detect_content_format(raw_content)
+            source_format = _source_format(raw_format_detected)
             if not raw_content.strip():
                 empty_documents += 1
+                source_format = "empty"
+                raw_format_detected = "plain_text"
                 normalized = NormalizedDocument(
                     doc_id=current_doc_id,
                     title=_safe_str(row.get("name")),
@@ -330,16 +345,96 @@ def run_normalize(
                     plain_text_length=0,
                     markdown_length=0,
                     text_preservation_ratio=None,
+                    source_format=source_format,
+                    raw_format_detected=raw_format_detected,
+                    useful_text_length=0,
+                    useful_text_ratio=None,
+                    metadata=_normalization_metadata(
+                        source_format=source_format,
+                        raw_format_detected=raw_format_detected,
+                        useful_text_length=0,
+                        useful_text_ratio=None,
+                    ),
                 )
                 normalized_docs.append(normalized)
                 _write_by_doc(by_doc_dir, normalized, [])
                 continue
 
-            direct_text = plain_text(raw_content)
-            blocks = extract_blocks(current_doc_id, raw_content, plain_text=direct_text)
-            markdown = render_blocks_markdown(blocks) or render_markdown(raw_content)
-            normalized_text = normalize_text_from_blocks(blocks)
+            warnings: list[dict[str, Any]] = []
+            error: str | None = None
+            if raw_format_detected == "editorjs_json":
+                try:
+                    source_useful_text = extract_editorjs_useful_text(raw_content)
+                    blocks = extract_editorjs_blocks(current_doc_id, raw_content)
+                except ValueError as exc:
+                    blocks = []
+                    direct_text = ""
+                    markdown = ""
+                    normalized_text = ""
+                    source_useful_text = ""
+                    error = str(exc)
+                    warnings.append(
+                        {
+                            "warning": "editorjs_parse_failed",
+                            "message": str(exc),
+                        }
+                    )
+                else:
+                    normalized_text = normalize_text_from_blocks(blocks)
+                    direct_text = normalized_text
+                    markdown = render_blocks_markdown(blocks)
+            else:
+                direct_text = plain_text(raw_content)
+                source_useful_text = direct_text
+                blocks = extract_blocks(current_doc_id, raw_content, plain_text=direct_text)
+                markdown = render_blocks_markdown(blocks) or render_markdown(raw_content)
+                normalized_text = normalize_text_from_blocks(blocks)
+
+            normalization_status = "ok" if blocks else "no_blocks"
+            if error is not None:
+                normalization_status = "failed"
             block_counts = Counter(block.type for block in blocks)
+            useful_text_length = len(normalize_whitespace(normalized_text))
+            useful_text_ratio = _useful_text_ratio(useful_text_length, raw_length)
+            if not blocks and error is None:
+                warnings.append(
+                    {
+                        "warning": "no_useful_blocks",
+                        "message": "No useful blocks extracted",
+                    }
+                )
+            if useful_text_ratio is not None and useful_text_ratio < 0.10:
+                warnings.append(
+                    {
+                        "warning": "low_useful_text_ratio",
+                        "message": "Extracted useful text is less than 10% of raw content",
+                        "useful_text_ratio": useful_text_ratio,
+                    }
+                )
+            json_markers = sorted(
+                set(find_json_markers(direct_text) + find_json_markers(markdown))
+            )
+            if json_markers:
+                warnings.append(
+                    {
+                        "warning": "json_markers_in_normalized_text",
+                        "message": "Normalized text contains JSON/service markers",
+                        "markers": json_markers,
+                    }
+                )
+            text_preservation_ratio = _text_preservation_ratio(
+                normalized_text, source_useful_text
+            )
+            if text_preservation_ratio is not None and text_preservation_ratio < 0.80:
+                warnings.append(
+                    {
+                        "warning": "low_text_preservation",
+                        "message": "Normalized text is less than 80% of source useful text",
+                        "text_preservation_ratio": text_preservation_ratio,
+                    }
+                )
+            if raw_format_detected == "editorjs_json" and not blocks and not source_useful_text:
+                text_preservation_ratio = None
             normalized = NormalizedDocument(
                 doc_id=current_doc_id,
                 title=_safe_str(row.get("name")),
@@ -347,11 +442,16 @@ def run_normalize(
                 plain_text=direct_text,
                 markdown=markdown,
                 block_count=len(blocks),
-                normalization_status="ok" if blocks else "no_blocks",
+                normalization_status=normalization_status,
+                error=error,
                 raw_length=raw_length,
                 plain_text_length=len(direct_text),
                 markdown_length=len(markdown),
-                text_preservation_ratio=_text_preservation_ratio(normalized_text, direct_text),
+                text_preservation_ratio=text_preservation_ratio,
+                source_format=source_format,
+                raw_format_detected=raw_format_detected,
+                useful_text_length=useful_text_length,
+                useful_text_ratio=useful_text_ratio,
                 heading_count=block_counts.get("heading", 0),
                 paragraph_count=block_counts.get("paragraph", 0),
                 list_item_count=block_counts.get("list_item", 0),
@@ -359,24 +459,45 @@ def run_normalize(
                 unknown_count=block_counts.get("unknown", 0),
                 has_tables=block_counts.get("table", 0) > 0,
                 has_headings=block_counts.get("heading", 0) > 0,
-                has_warnings=not blocks,
+                has_warnings=bool(warnings),
+                metadata=_normalization_metadata(
+                    source_format=source_format,
+                    raw_format_detected=raw_format_detected,
+                    useful_text_length=useful_text_length,
+                    useful_text_ratio=useful_text_ratio,
+                    warnings=warnings,
+                    extra={
+                        "source_useful_text_length": len(
+                            normalize_whitespace(source_useful_text)
+                        ),
+                        "text_preservation_basis": (
+                            "editorjs_useful_text"
+                            if raw_format_detected == "editorjs_json"
+                            else "direct_plain_text"
+                        ),
+                    },
+                ),
             )
             normalized_docs.append(normalized)
             all_blocks.extend(blocks)
             _write_by_doc(by_doc_dir, normalized, blocks)
-            if blocks:
+            if normalization_status == "ok":
                 ok_documents += 1
             else:
                 failed_documents += 1
+                error_code = "EditorJsParseFailed" if error is not None else "NoBlocks"
                 errors.append(
                     {
                         "doc_id": current_doc_id,
-                        "error": "NoBlocks",
-                        "message": "No blocks extracted",
+                        "error": error_code,
+                        "message": error or "No blocks extracted",
                     }
                 )
         except Exception as exc:
             failed_documents += 1
+            raw_content = _safe_str(row.get("raw_content"))
+            raw_format_detected = detect_content_format(raw_content)
+            source_format = _source_format(raw_format_detected)
             errors.append(
                 {"doc_id": current_doc_id, "error": type(exc).__name__, "message": str(exc)}
             )
@@ -391,7 +512,23 @@ def run_normalize(
                     normalization_status="failed",
                     error=str(exc),
                     raw_length=_safe_int(row.get("raw_length"), default=0),
+                    source_format=source_format,
+                    raw_format_detected=raw_format_detected,
+                    useful_text_length=0,
+                    useful_text_ratio=None,
                     has_warnings=True,
+                    metadata=_normalization_metadata(
+                        source_format=source_format,
+                        raw_format_detected=raw_format_detected,
+                        useful_text_length=0,
+                        useful_text_ratio=None,
+                        warnings=[
+                            {
+                                "warning": "normalization_exception",
+                                "message": str(exc),
+                            }
+                        ],
+                    ),
                 )
             )
 
@@ -466,6 +603,9 @@ def run_audit_normalized(
             "documents_without_blocks": 0,
             "total_blocks": 0,
             "blocks_by_type": {},
+            "documents_by_source_format": {},
+            "editorjs_documents": 0,
+            "top_documents_with_json_markers": [],
             "documents_with_tables": 0,
             "documents_with_headings": 0,
             "low_text_preservation_documents": [],
@@ -485,6 +625,12 @@ def run_audit_normalized(
         if "type" in blocks.columns
         else {}
     )
+    source_format_counts = (
+        normalized["source_format"].fillna("").astype(str).value_counts().sort_index().to_dict()
+        if "source_format" in normalized.columns
+        else {}
+    )
+    json_marker_rows = normalized[_json_marker_mask(normalized)]
     low_text_preservation = _document_records(
         normalized[
             (normalized.get("text_preservation_ratio", pd.Series(dtype=float)).fillna(1.0) < 0.8)
@@ -522,6 +668,9 @@ def run_audit_normalized(
         "documents_without_blocks": int(len(documents_without_blocks)),
         "total_blocks": int(len(blocks)),
         "blocks_by_type": block_type_counts,
+        "documents_by_source_format": source_format_counts,
+        "editorjs_documents": int(source_format_counts.get("editorjs", 0)),
+        "top_documents_with_json_markers": _document_records(json_marker_rows, limit=20),
         "documents_with_tables": int(normalized.get("has_tables", pd.Series(dtype=bool)).sum()),
         "documents_with_headings": int(normalized.get("has_headings", pd.Series(dtype=bool)).sum()),
         "low_text_preservation_documents": low_text_preservation,
@@ -620,6 +769,7 @@ def _validate_s01(paths: ProjectPaths) -> dict[str, Any]:
         )
     if normalized is not None:
         _validate_columns(normalized_path, normalized, S01_DOCUMENT_COLUMNS, errors)
+        _warn_no_blocks_documents(normalized, warnings)
     if blocks is not None:
         _validate_columns(blocks_path, blocks, S01_BLOCK_COLUMNS, errors)
     if normalized is not None and ingested is not None:
@@ -633,6 +783,7 @@ def _validate_s01(paths: ProjectPaths) -> dict[str, Any]:
         )
     if normalized is not None and blocks is not None:
         _validate_block_counts(normalized_path, blocks_path, normalized, blocks, errors)
+        _validate_plain_text_has_no_json_markers(normalized_path, normalized, errors)
     if normalized is not None and ingested is not None and blocks is not None:
         _validate_nonempty_documents_have_blocks(
             ingested_path, blocks_path, ingested, normalized, blocks, errors
@@ -709,6 +860,38 @@ def _text_preservation_ratio(normalized_text: str, direct_text: str) -> float | 
     return round(min(len(normalize_whitespace(normalized_text)) / direct_length, 1.0), 4)
 
 
+def _source_format(raw_format_detected: str) -> str:
+    return "editorjs" if raw_format_detected == "editorjs_json" else raw_format_detected
+
+
+def _useful_text_ratio(useful_text_length: int, raw_length: int) -> float | None:
+    if raw_length <= 0:
+        return None
+    return round(min(useful_text_length / raw_length, 1.0), 4)
+
+
+def _normalization_metadata(
+    *,
+    source_format: str,
+    raw_format_detected: str,
+    useful_text_length: int,
+    useful_text_ratio: float | None,
+    warnings: list[dict[str, Any]] | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "source_format": source_format,
+        "raw_format_detected": raw_format_detected,
+        "useful_text_length": useful_text_length,
+        "useful_text_ratio": useful_text_ratio,
+    }
+    if extra:
+        metadata.update(extra)
+    if warnings:
+        metadata["warnings"] = warnings
+    return metadata
+
+
 def _block_metric_records(blocks: list[DocumentBlock]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for block in blocks:
@@ -778,6 +961,25 @@ def _validate_columns(
                 "message": ", ".join(missing_columns),
             }
         )
+
+
+def _warn_no_blocks_documents(
+    normalized: pd.DataFrame, warnings: list[dict[str, Any]]
+) -> None:
+    if "normalization_status" not in normalized.columns:
+        return
+    no_blocks = normalized[
+        normalized.get("normalization_status", pd.Series(dtype=str)) == "no_blocks"
+    ]
+    if no_blocks.empty:
+        return
+    warnings.append(
+        {
+            "warning": "NoBlocksDocuments",
+            "message": f"{len(no_blocks)} normalized documents have no extracted blocks",
+            "sample": _document_records(no_blocks, limit=20),
+        }
+    )
 
 
 def _validate_normalized_coverage(
@@ -855,6 +1057,34 @@ def _validate_block_counts(
         )
 
 
+def _validate_plain_text_has_no_json_markers(
+    normalized_path: Path, normalized: pd.DataFrame, errors: list[dict[str, Any]]
+) -> None:
+    if "plain_text" not in normalized.columns or "doc_id" not in normalized.columns:
+        return
+    polluted: list[dict[str, Any]] = []
+    for row in normalized.to_dict(orient="records"):
+        markers = find_json_markers(_safe_str(row.get("plain_text")))
+        if markers:
+            polluted.append(
+                {
+                    "doc_id": _safe_str(row.get("doc_id")),
+                    "markers": sorted(set(markers)),
+                }
+            )
+    if polluted:
+        errors.append(
+            {
+                "artifact": str(normalized_path),
+                "error": "JsonMarkersInPlainText",
+                "message": (
+                    f"{len(polluted)} normalized documents contain JSON markers in plain_text"
+                ),
+                "sample": polluted[:20],
+            }
+        )
+
+
 def _validate_nonempty_documents_have_blocks(
     ingested_path: Path,
     blocks_path: Path,
@@ -872,8 +1102,12 @@ def _validate_nonempty_documents_have_blocks(
         for row in ingested.to_dict(orient="records")
         if _safe_str(row.get("raw_content")).strip()
     }
-    normalized_doc_ids = set(normalized["doc_id"].dropna().astype(str))
-    checked_doc_ids = ingested_nonempty & normalized_doc_ids
+    normalized_ok_doc_ids = {
+        _safe_str(row.get("doc_id"))
+        for row in normalized.to_dict(orient="records")
+        if _safe_str(row.get("normalization_status")) == "ok"
+    }
+    checked_doc_ids = ingested_nonempty & normalized_ok_doc_ids
     if checked_doc_ids and blocks.empty:
         errors.append(
             {
@@ -942,10 +1176,14 @@ def _document_records(dataframe: pd.DataFrame, *, limit: int) -> list[dict[str, 
     fields = [
         "doc_id",
         "title",
+        "source_format",
+        "raw_format_detected",
         "block_count",
         "table_count",
         "unknown_count",
         "raw_length",
+        "useful_text_length",
+        "useful_text_ratio",
         "text_preservation_ratio",
         "normalization_status",
         "error",
@@ -960,6 +1198,12 @@ def _document_records(dataframe: pd.DataFrame, *, limit: int) -> list[dict[str, 
             }
         )
     return records
+
+
+def _json_marker_mask(dataframe: pd.DataFrame) -> pd.Series:
+    if "plain_text" not in dataframe.columns:
+        return pd.Series(False, index=dataframe.index)
+    return dataframe["plain_text"].fillna("").astype(str).map(has_json_markers)
 
 
 def _select_audit_samples(
@@ -995,6 +1239,7 @@ def _select_audit_samples(
         (normalized.get("block_count", pd.Series(dtype=int)).fillna(0).astype(int) == 0)
         | (normalized.get("text_preservation_ratio", pd.Series(dtype=float)).fillna(1.0) < 0.8)
         | (normalized.get("unknown_count", pd.Series(dtype=int)).fillna(0).astype(int) > 0)
+        | _json_marker_mask(normalized)
         | normalized.get("normalization_status", pd.Series(dtype=str)).isin(["failed", "no_blocks"])
         | (
             (normalized.get("markdown", pd.Series(dtype=str)).fillna("").astype(str).str.strip()
@@ -1067,20 +1312,25 @@ def _render_sample_html(
     title = _safe_str(normalized_row.get("title") or ingested_row.get("name") or doc_id)
     markdown = _safe_str(normalized_row.get("markdown"))
     raw_content = _safe_str(ingested_row.get("raw_content"))
-    return "\n".join(
-        [
-            "<!doctype html>",
-            "<html>",
-            "<head><meta charset=\"utf-8\"><title>" + escape(title) + "</title></head>",
-            "<body>",
-            "<h1>" + escape(title) + "</h1>",
-            "<h2>Normalized Markdown</h2>",
-            "<pre>" + escape(markdown) + "</pre>",
-            "<h2>Raw Content</h2>",
-            "<pre>" + escape(raw_content) + "</pre>",
-            "</body>",
-            "</html>",
-        ]
+    lines = [
+        "<!doctype html>",
+        "<html>",
+        "<head><meta charset=\"utf-8\"><title>" + escape(title) + "</title></head>",
+        "<body>",
+        "<h1>" + escape(title) + "</h1>",
+        "<h2>Normalized Markdown</h2>",
+        "<pre>" + escape(markdown) + "</pre>",
+    ]
+    if not _is_editorjs_row(normalized_row):
+        lines.extend(["<h2>Raw Content</h2>", "<pre>" + escape(raw_content) + "</pre>"])
+    lines.extend(["</body>", "</html>"])
+    return "\n".join(lines)
+
+
+def _is_editorjs_row(normalized_row: dict[str, Any]) -> bool:
+    return (
+        _safe_str(normalized_row.get("source_format")) == "editorjs"
+        or _safe_str(normalized_row.get("raw_format_detected")) == "editorjs_json"
     )
 
 
@@ -1096,12 +1346,26 @@ def _render_quality_report_markdown(report: dict[str, Any]) -> str:
         f"- Failed/no-block documents: {report['failed_documents']}",
         f"- Documents without blocks: {report['documents_without_blocks']}",
         f"- Total blocks: {report['total_blocks']}",
+        f"- Editor.js documents: {report.get('editorjs_documents', 0)}",
         f"- Documents with tables: {report['documents_with_tables']}",
         f"- Documents with headings: {report['documents_with_headings']}",
         "",
-        "## Blocks By Type",
+        "## Documents By Source Format",
         "",
     ]
+    for source_format, count in report.get("documents_by_source_format", {}).items():
+        lines.append(f"- {source_format}: {count}")
+    lines.extend(
+        [
+            "",
+            "## JSON Marker Documents",
+            "",
+            *_markdown_doc_list(report.get("top_documents_with_json_markers", [])),
+            "",
+            "## Blocks By Type",
+            "",
+        ]
+    )
     for block_type, count in report.get("blocks_by_type", {}).items():
         lines.append(f"- {block_type}: {count}")
     lines.extend(["", "## Low Text Preservation", ""])

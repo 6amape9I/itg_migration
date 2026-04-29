@@ -115,3 +115,18 @@ def test_validate_stage_reports_block_count_mismatch(tmp_path: Path) -> None:
 
     assert result["valid"] is False
     assert any(error["error"] == "BlockCountMismatch" for error in result["errors"])
+
+
+def test_validate_stage_reports_json_markers_in_plain_text(tmp_path: Path) -> None:
+    run_ingest(FIXTURE, project_root=tmp_path)
+    run_normalize(project_root=tmp_path)
+    paths = ProjectPaths.from_root(tmp_path)
+    normalized_path = paths.normalized_dir / "documents_normalized.parquet"
+    normalized = pd.read_parquet(normalized_path)
+    normalized.loc[0, "plain_text"] = '{"blocks": [{"data": {"api": {}}}]}'
+    normalized.to_parquet(normalized_path, index=False)
+
+    result = validate_stage("S01", project_root=tmp_path)
+
+    assert result["valid"] is False
+    assert any(error["error"] == "JsonMarkersInPlainText" for error in result["errors"])
