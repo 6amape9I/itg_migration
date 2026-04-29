@@ -16,6 +16,9 @@ class DocumentBlock(BaseModel):
     html: str | None = None
     level: int | None = None
     parent_path: list[str] = Field(default_factory=list)
+    heading_path: list[str] = Field(default_factory=list)
+    dom_path: str | None = None
     char_start: int | None = None
     char_end: int | None = None
+    text_hash: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)

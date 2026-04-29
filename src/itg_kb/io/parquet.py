@@ -9,10 +9,14 @@ from typing import Any
 import pandas as pd
 
 
-def write_parquet_records(path: Path | str, records: list[dict[str, Any]]) -> None:
+def write_parquet_records(
+    path: Path | str, records: list[dict[str, Any]], columns: list[str] | None = None
+) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     dataframe = pd.DataFrame.from_records(records)
+    if columns is not None:
+        dataframe = dataframe.reindex(columns=columns)
     for column in dataframe.columns:
         if dataframe[column].map(lambda value: isinstance(value, dict | list)).any():
             dataframe[column] = dataframe[column].map(_json_or_none)

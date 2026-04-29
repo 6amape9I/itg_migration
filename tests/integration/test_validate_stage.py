@@ -76,3 +76,42 @@ def test_validate_stage_reports_missing_normalized_doc_id(tmp_path: Path) -> Non
 
     assert result["valid"] is False
     assert any(error["error"] == "MissingNormalizedDocuments" for error in result["errors"])
+
+
+def test_validate_stage_allows_partial_normalize_with_report_marker(tmp_path: Path) -> None:
+    run_ingest(FIXTURE, project_root=tmp_path)
+    run_normalize(project_root=tmp_path, limit=2)
+
+    result = validate_stage("S01", project_root=tmp_path)
+
+    assert result["valid"] is True
+    assert result["errors"] == []
+
+
+def test_validate_stage_reports_empty_blocks_for_nonempty_documents(tmp_path: Path) -> None:
+    run_ingest(FIXTURE, project_root=tmp_path)
+    run_normalize(project_root=tmp_path)
+    paths = ProjectPaths.from_root(tmp_path)
+    blocks_path = paths.normalized_dir / "blocks.parquet"
+    blocks = pd.read_parquet(blocks_path)
+    blocks.iloc[0:0].to_parquet(blocks_path, index=False)
+
+    result = validate_stage("S01", project_root=tmp_path)
+
+    assert result["valid"] is False
+    assert any(error["error"] == "EmptyBlocksForNonemptyDocuments" for error in result["errors"])
+
+
+def test_validate_stage_reports_block_count_mismatch(tmp_path: Path) -> None:
+    run_ingest(FIXTURE, project_root=tmp_path)
+    run_normalize(project_root=tmp_path)
+    paths = ProjectPaths.from_root(tmp_path)
+    normalized_path = paths.normalized_dir / "documents_normalized.parquet"
+    normalized = pd.read_parquet(normalized_path)
+    normalized.loc[0, "block_count"] = int(normalized.loc[0, "block_count"]) + 1
+    normalized.to_parquet(normalized_path, index=False)
+
+    result = validate_stage("S01", project_root=tmp_path)
+
+    assert result["valid"] is False
+    assert any(error["error"] == "BlockCountMismatch" for error in result["errors"])

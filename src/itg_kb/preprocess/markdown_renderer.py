@@ -21,11 +21,12 @@ def render_blocks_markdown(blocks: list[DocumentBlock]) -> str:
             level = block.level or 2
             rendered.append(f"{'#' * max(1, min(level, 6))} {block.text}")
         elif block.type == "list_item":
-            rendered.append(f"- {block.text}")
+            marker = "1." if block.metadata.get("list_type") == "ordered" else "-"
+            rendered.append(f"{marker} {block.text}")
         elif block.type == "blockquote":
             rendered.append(f"> {block.text}")
         elif block.type == "table":
-            rendered.append(block.text)
+            rendered.append(str(block.metadata.get("markdown") or block.text))
         else:
             rendered.append(block.text)
     return "\n\n".join(rendered).strip()

@@ -19,6 +19,13 @@ def test_extracts_tables() -> None:
     table = next(block for block in blocks if block.type == "table")
     assert "Параметр" in table.text
     assert table.metadata["rows"][1] == ["Температура", "37"]
+    assert table.metadata["row_count"] == 2
+    assert table.metadata["column_count"] == 2
+    assert table.metadata["has_header"] is True
+    assert "| Параметр | Значение |" in table.metadata["markdown"]
+    assert table.heading_path == ["Показатели"]
+    assert table.dom_path
+    assert table.text_hash
 
 
 def test_malformed_html_does_not_crash() -> None:
@@ -34,6 +41,14 @@ def test_extracts_text_nodes_inside_div_without_paragraphs() -> None:
 
     assert "Текст прямо внутри div без отдельного paragraph." in texts
     assert "Дополнительный текст внутри section без p." in texts
+
+
+def test_heading_path_tracks_current_heading() -> None:
+    blocks = extract_blocks("doc_test", "<h1>Глава</h1><h2>Раздел</h2><p>Текст</p>")
+    paragraph = next(block for block in blocks if block.type == "paragraph")
+
+    assert paragraph.heading_path == ["Глава", "Раздел"]
+    assert paragraph.parent_path[-2:] == ["h1:глава", "h2:раздел"]
 
 
 def test_realish_malformed_html_keeps_useful_text() -> None:

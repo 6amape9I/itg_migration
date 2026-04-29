@@ -101,6 +101,7 @@ class ProjectPaths:
         return [
             self.normalized_dir / "documents_normalized.parquet",
             self.normalized_dir / "blocks.parquet",
+            self.normalized_dir / "block_metrics.parquet",
             self.reports_dir / "S01_normalization_report.json",
         ]
 

@@ -51,6 +51,25 @@
       "title": "Parent Path",
       "type": "array"
     },
+    "heading_path": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Heading Path",
+      "type": "array"
+    },
+    "dom_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dom Path"
+    },
     "char_start": {
       "anyOf": [
         {
@@ -74,6 +93,11 @@
       ],
       "default": null,
       "title": "Char End"
+    },
+    "text_hash": {
+      "default": "",
+      "title": "Text Hash",
+      "type": "string"
     },
     "metadata": {
       "additionalProperties": true,

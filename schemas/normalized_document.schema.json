@@ -1,0 +1,127 @@
+{
+  "properties": {
+    "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "content_hash": {
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "plain_text": {
+      "title": "Plain Text",
+      "type": "string"
+    },
+    "markdown": {
+      "title": "Markdown",
+      "type": "string"
+    },
+    "block_count": {
+      "title": "Block Count",
+      "type": "integer"
+    },
+    "normalization_status": {
+      "title": "Normalization Status",
+      "type": "string"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "raw_length": {
+      "default": 0,
+      "title": "Raw Length",
+      "type": "integer"
+    },
+    "plain_text_length": {
+      "default": 0,
+      "title": "Plain Text Length",
+      "type": "integer"
+    },
+    "markdown_length": {
+      "default": 0,
+      "title": "Markdown Length",
+      "type": "integer"
+    },
+    "text_preservation_ratio": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Text Preservation Ratio"
+    },
+    "heading_count": {
+      "default": 0,
+      "title": "Heading Count",
+      "type": "integer"
+    },
+    "paragraph_count": {
+      "default": 0,
+      "title": "Paragraph Count",
+      "type": "integer"
+    },
+    "list_item_count": {
+      "default": 0,
+      "title": "List Item Count",
+      "type": "integer"
+    },
+    "table_count": {
+      "default": 0,
+      "title": "Table Count",
+      "type": "integer"
+    },
+    "unknown_count": {
+      "default": 0,
+      "title": "Unknown Count",
+      "type": "integer"
+    },
+    "has_tables": {
+      "default": false,
+      "title": "Has Tables",
+      "type": "boolean"
+    },
+    "has_headings": {
+      "default": false,
+      "title": "Has Headings",
+      "type": "boolean"
+    },
+    "has_warnings": {
+      "default": false,
+      "title": "Has Warnings",
+      "type": "boolean"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "doc_id",
+    "title",
+    "content_hash",
+    "plain_text",
+    "markdown",
+    "block_count",
+    "normalization_status"
+  ],
+  "title": "NormalizedDocument",
+  "type": "object"
+}

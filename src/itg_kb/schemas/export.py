@@ -13,6 +13,7 @@ from itg_kb.schemas import (
     DocumentBlock,
     DocumentRecord,
     GraphArtifact,
+    NormalizedDocument,
     QuoteRecord,
     TagCandidate,
     TagRecord,
@@ -23,6 +24,7 @@ ModelClass: TypeAlias = type[BaseModel]
 
 SCHEMA_MODELS: dict[str, ModelClass] = {
     "document.schema.json": DocumentRecord,
+    "normalized_document.schema.json": NormalizedDocument,
     "block.schema.json": DocumentBlock,
     "tag_candidate.schema.json": TagCandidate,
     "tag_catalog.schema.json": TagRecord,
