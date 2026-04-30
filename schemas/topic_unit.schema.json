@@ -1,0 +1,107 @@
+{
+  "properties": {
+    "topic_unit_id": {
+      "title": "Topic Unit Id",
+      "type": "string"
+    },
+    "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+    },
+    "unit_index": {
+      "title": "Unit Index",
+      "type": "integer"
+    },
+    "unit_type": {
+      "title": "Unit Type",
+      "type": "string"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Title"
+    },
+    "heading_path": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Heading Path",
+      "type": "array"
+    },
+    "block_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Block Ids",
+      "type": "array"
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    },
+    "text_length": {
+      "title": "Text Length",
+      "type": "integer"
+    },
+    "char_start": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Char Start"
+    },
+    "char_end": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Char End"
+    },
+    "source_block_types": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Block Types",
+      "type": "array"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "topic_unit_id",
+    "doc_id",
+    "unit_index",
+    "unit_type",
+    "text",
+    "text_length"
+  ],
+  "title": "TopicUnit",
+  "type": "object"
+}

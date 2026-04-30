@@ -13,9 +13,11 @@ from itg_kb.core.paths import ProjectPaths
 from itg_kb.orchestration.stages import (
     pipeline_status,
     run_audit_normalized,
+    run_audit_tag_candidates,
     run_ingest,
     run_init_dirs,
     run_normalize,
+    run_tag_candidates,
     validate_stage,
 )
 
@@ -65,6 +67,31 @@ def audit_normalized(
     ),
 ) -> None:
     report = run_audit_normalized(sample_size=sample_size)
+    console.print_json(json.dumps(report, ensure_ascii=False))
+    if report["status"] == "failed":
+        raise typer.Exit(code=1)
+
+
+@app.command("tag-candidates")
+def tag_candidates(
+    stage: str = typer.Option("S02A", "--stage", help="Tagging stage to run."),
+    limit: int | None = typer.Option(None, "--limit", min=1, help="Process first N documents."),
+    doc_id: str | None = typer.Option(None, "--doc-id", help="Process a single doc_id."),
+    force: bool = typer.Option(False, "--force", help="Overwrite existing tagging artifacts."),
+) -> None:
+    report = run_tag_candidates(stage=stage, limit=limit, doc_id=doc_id, force=force)
+    console.print_json(json.dumps(report, ensure_ascii=False))
+    if report["status"] == "failed":
+        raise typer.Exit(code=1)
+
+
+@app.command("audit-tag-candidates")
+def audit_tag_candidates(
+    sample_size: int = typer.Option(
+        300, "--sample-size", min=0, help="Number of candidates to sample for review."
+    ),
+) -> None:
+    report = run_audit_tag_candidates(sample_size=sample_size)
     console.print_json(json.dumps(report, ensure_ascii=False))
     if report["status"] == "failed":
         raise typer.Exit(code=1)

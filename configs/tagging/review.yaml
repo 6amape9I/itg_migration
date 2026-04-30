@@ -1,0 +1,5 @@
+review_top_k_per_doc: 10
+review_sample_size: 300
+large_doc_topic_unit_warning_threshold: 50
+many_candidates_warning_threshold: 50
+candidate_explosion_warning_threshold: 200

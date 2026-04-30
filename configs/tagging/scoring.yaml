@@ -1,0 +1,20 @@
+minimum_score: 0.05
+primary_min_score: 0.75
+section_min_score: 0.45
+secondary_min_score: 0.32
+needs_review_score: 0.55
+components:
+  title_entity_match: 0.26
+  heading_entity_match: 0.22
+  heading_path_match: 0.10
+  topic_unit_position: 0.08
+  entity_pattern_match: 0.20
+  facet_split_confidence: 0.08
+  frequency_in_headings: 0.08
+  frequency_in_unit_text: 0.06
+  cross_reference_signal: 0.07
+  base_entity: 0.18
+  base_generic_facet: 0.16
+  generic_penalty: -0.30
+  dosage_only_penalty: -0.16
+  too_short_penalty: -0.18

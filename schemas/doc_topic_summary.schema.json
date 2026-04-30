@@ -1,0 +1,81 @@
+{
+  "properties": {
+    "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "normalization_status": {
+      "title": "Normalization Status",
+      "type": "string"
+    },
+    "topic_unit_count": {
+      "title": "Topic Unit Count",
+      "type": "integer"
+    },
+    "candidate_count_total": {
+      "title": "Candidate Count Total",
+      "type": "integer"
+    },
+    "primary_candidate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Primary Candidate Ids",
+      "type": "array"
+    },
+    "top_candidate_ids_for_review": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Top Candidate Ids For Review",
+      "type": "array"
+    },
+    "facet_only_count": {
+      "default": 0,
+      "title": "Facet Only Count",
+      "type": "integer"
+    },
+    "cross_topic_reference_count": {
+      "default": 0,
+      "title": "Cross Topic Reference Count",
+      "type": "integer"
+    },
+    "needs_review": {
+      "default": false,
+      "title": "Needs Review",
+      "type": "boolean"
+    },
+    "review_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Review Reason"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "doc_id",
+    "title",
+    "normalization_status",
+    "topic_unit_count",
+    "candidate_count_total"
+  ],
+  "title": "DocTopicSummary",
+  "type": "object"
+}

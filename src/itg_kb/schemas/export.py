@@ -10,6 +10,8 @@ from pydantic import BaseModel
 
 from itg_kb.schemas import (
     ArticleArtifact,
+    CandidateEvidence,
+    DocTopicSummary,
     DocumentBlock,
     DocumentRecord,
     GraphArtifact,
@@ -18,6 +20,7 @@ from itg_kb.schemas import (
     TagCandidate,
     TagRecord,
     TopicSnippet,
+    TopicUnit,
 )
 
 ModelClass: TypeAlias = type[BaseModel]
@@ -26,7 +29,10 @@ SCHEMA_MODELS: dict[str, ModelClass] = {
     "document.schema.json": DocumentRecord,
     "normalized_document.schema.json": NormalizedDocument,
     "block.schema.json": DocumentBlock,
+    "topic_unit.schema.json": TopicUnit,
     "tag_candidate.schema.json": TagCandidate,
+    "candidate_evidence.schema.json": CandidateEvidence,
+    "doc_topic_summary.schema.json": DocTopicSummary,
     "tag_catalog.schema.json": TagRecord,
     "topic_snippet.schema.json": TopicSnippet,
     "article.schema.json": ArticleArtifact,

@@ -8,15 +8,7 @@
       "title": "Doc Id",
       "type": "string"
     },
-    "surface": {
-      "title": "Surface",
-      "type": "string"
-    },
-    "normalized_surface": {
-      "title": "Normalized Surface",
-      "type": "string"
-    },
-    "entity_type": {
+    "topic_unit_id": {
       "anyOf": [
         {
           "type": "string"
@@ -26,7 +18,85 @@
         }
       ],
       "default": null,
-      "title": "Entity Type"
+      "title": "Topic Unit Id"
+    },
+    "role": {
+      "title": "Role",
+      "type": "string"
+    },
+    "surface": {
+      "title": "Surface",
+      "type": "string"
+    },
+    "normalized_surface": {
+      "title": "Normalized Surface",
+      "type": "string"
+    },
+    "core_surface": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Core Surface"
+    },
+    "normalized_core_surface": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Normalized Core Surface"
+    },
+    "entity_type": {
+      "title": "Entity Type",
+      "type": "string"
+    },
+    "entity_subtype": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Entity Subtype"
+    },
+    "facet_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Facet Type"
+    },
+    "facets": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Facets",
+      "type": "array"
+    },
+    "qualifiers": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Qualifiers",
+      "type": "object"
     },
     "sources": {
       "items": {
@@ -49,8 +119,17 @@
       "title": "Evidence Texts",
       "type": "array"
     },
+    "heading_paths": {
+      "items": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Heading Paths",
+      "type": "array"
+    },
     "score": {
-      "default": 0.0,
       "title": "Score",
       "type": "number"
     },
@@ -61,6 +140,34 @@
       "title": "Score Components",
       "type": "object"
     },
+    "confidence_bucket": {
+      "title": "Confidence Bucket",
+      "type": "string"
+    },
+    "needs_review": {
+      "default": false,
+      "title": "Needs Review",
+      "type": "boolean"
+    },
+    "review_reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Review Reason"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    },
     "metadata": {
       "additionalProperties": true,
       "title": "Metadata",
@@ -70,8 +177,12 @@
   "required": [
     "candidate_id",
     "doc_id",
+    "role",
     "surface",
-    "normalized_surface"
+    "normalized_surface",
+    "entity_type",
+    "score",
+    "confidence_bucket"
   ],
   "title": "TagCandidate",
   "type": "object"

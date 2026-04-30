@@ -1,0 +1,86 @@
+{
+  "properties": {
+    "evidence_id": {
+      "title": "Evidence Id",
+      "type": "string"
+    },
+    "candidate_id": {
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "doc_id": {
+      "title": "Doc Id",
+      "type": "string"
+    },
+    "topic_unit_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Topic Unit Id"
+    },
+    "block_id": {
+      "title": "Block Id",
+      "type": "string"
+    },
+    "evidence_type": {
+      "title": "Evidence Type",
+      "type": "string"
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    },
+    "heading_path": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Heading Path",
+      "type": "array"
+    },
+    "char_start": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Char Start"
+    },
+    "char_end": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Char End"
+    },
+    "weight": {
+      "title": "Weight",
+      "type": "number"
+    }
+  },
+  "required": [
+    "evidence_id",
+    "candidate_id",
+    "doc_id",
+    "block_id",
+    "evidence_type",
+    "text",
+    "weight"
+  ],
+  "title": "CandidateEvidence",
+  "type": "object"
+}

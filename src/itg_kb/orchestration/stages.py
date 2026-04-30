@@ -34,6 +34,8 @@ from itg_kb.preprocess.html_cleaner import has_html_markup, normalize_whitespace
 from itg_kb.preprocess.markdown_renderer import render_blocks_markdown, render_markdown
 from itg_kb.schemas.blocks import DocumentBlock
 from itg_kb.schemas.documents import DocumentRecord, NormalizedDocument
+from itg_kb.schemas.tags import CandidateEvidence, DocTopicSummary, TagCandidate, TopicUnit
+from itg_kb.tagging.stage_s02a import audit_tag_candidates_s02a, run_tag_candidates_s02a
 
 SOURCE_ID_COLUMNS = ("source_id", "id", "document_id", "uuid")
 S00_DOCUMENT_COLUMNS = {
@@ -101,6 +103,10 @@ S01_BLOCK_METRIC_COLUMNS = [
     "column_count",
     "heading_path",
 ]
+S02A_TOPIC_UNIT_COLUMNS = set(TopicUnit.model_fields)
+S02A_TAG_CANDIDATE_COLUMNS = set(TagCandidate.model_fields)
+S02A_CANDIDATE_EVIDENCE_COLUMNS = set(CandidateEvidence.model_fields)
+S02A_DOC_TOPIC_COLUMNS = set(DocTopicSummary.model_fields)
 
 
 def run_init_dirs(project_root: Path | str = ".") -> list[Path]:
@@ -411,9 +417,7 @@ def run_normalize(
                         "useful_text_ratio": useful_text_ratio,
                     }
                 )
-            json_markers = sorted(
-                set(find_json_markers(direct_text) + find_json_markers(markdown))
-            )
+            json_markers = sorted(set(find_json_markers(direct_text) + find_json_markers(markdown)))
             if json_markers:
                 warnings.append(
                     {
@@ -422,9 +426,7 @@ def run_normalize(
                         "markers": json_markers,
                     }
                 )
-            text_preservation_ratio = _text_preservation_ratio(
-                normalized_text, source_useful_text
-            )
+            text_preservation_ratio = _text_preservation_ratio(normalized_text, source_useful_text)
             if text_preservation_ratio is not None and text_preservation_ratio < 0.80:
                 warnings.append(
                     {
@@ -467,9 +469,7 @@ def run_normalize(
                     useful_text_ratio=useful_text_ratio,
                     warnings=warnings,
                     extra={
-                        "source_useful_text_length": len(
-                            normalize_whitespace(source_useful_text)
-                        ),
+                        "source_useful_text_length": len(normalize_whitespace(source_useful_text)),
                         "text_preservation_basis": (
                             "editorjs_useful_text"
                             if raw_format_detected == "editorjs_json"
@@ -698,12 +698,36 @@ def run_audit_normalized(
     return report
 
 
+def run_tag_candidates(
+    project_root: Path | str = ".",
+    *,
+    stage: str = "S02A",
+    limit: int | None = None,
+    doc_id: str | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    return run_tag_candidates_s02a(
+        project_root=project_root,
+        stage=stage,
+        limit=limit,
+        doc_id=doc_id,
+        force=force,
+    )
+
+
+def run_audit_tag_candidates(
+    project_root: Path | str = ".", *, sample_size: int = 300
+) -> dict[str, Any]:
+    return audit_tag_candidates_s02a(project_root=project_root, sample_size=sample_size)
+
+
 def pipeline_status(project_root: Path | str = ".") -> list[dict[str, Any]]:
     paths = ProjectPaths.from_root(project_root)
     paths.ensure_data_dirs()
     status = [
         {"stage": "S00", "outputs": existing_outputs(paths.s00_outputs)},
         {"stage": "S01", "outputs": existing_outputs(paths.s01_outputs)},
+        {"stage": "S02A", "outputs": existing_outputs(paths.s02a_outputs)},
     ]
     write_json(paths.reports_dir / "pipeline_status.json", {"stages": status})
     return status
@@ -716,6 +740,8 @@ def validate_stage(stage: str, project_root: Path | str = ".") -> dict[str, Any]
         return _validate_s00(paths)
     elif normalized_stage == "S01":
         return _validate_s01(paths)
+    elif normalized_stage == "S02A":
+        return _validate_s02a(paths)
     return {
         "stage": normalized_stage,
         "valid": False,
@@ -805,6 +831,83 @@ def _validate_s01(paths: ProjectPaths) -> dict[str, Any]:
         )
 
     return _validation_result("S01", outputs, missing, errors, warnings=warnings)
+
+
+def _validate_s02a(paths: ProjectPaths) -> dict[str, Any]:
+    outputs = paths.s02a_outputs
+    missing = missing_outputs(outputs)
+    errors: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+
+    topic_units_path = paths.tagging_dir / "topic_units.parquet"
+    candidates_path = paths.tagging_dir / "tag_candidates.parquet"
+    evidence_path = paths.tagging_dir / "candidate_evidence.parquet"
+    doc_topics_path = paths.tagging_dir / "doc_topics.parquet"
+    doc_jsonl_path = paths.tagging_dir / "doc_tag_candidates.jsonl"
+    ambiguity_path = paths.tagging_dir / "ambiguity_queue.jsonl"
+    report_path = paths.reports_dir / "S02A_tagging_report.json"
+    report_md_path = paths.reports_dir / "S02A_tagging_report.md"
+    review_path = paths.reports_dir / "S02A_review_sample.csv"
+    distribution_path = paths.reports_dir / "S02A_candidate_distribution.csv"
+    no_blocks_path = paths.reports_dir / "S02A_no_blocks_skipped.csv"
+
+    topic_units = _read_parquet_for_validation(topic_units_path, errors)
+    candidates = _read_parquet_for_validation(candidates_path, errors)
+    evidence = _read_parquet_for_validation(evidence_path, errors)
+    doc_topics = _read_parquet_for_validation(doc_topics_path, errors)
+    report = _read_json_for_validation(report_path, errors)
+
+    if topic_units is not None:
+        _validate_columns(topic_units_path, topic_units, S02A_TOPIC_UNIT_COLUMNS, errors)
+    if candidates is not None:
+        _validate_columns(candidates_path, candidates, S02A_TAG_CANDIDATE_COLUMNS, errors)
+        _validate_s02a_candidate_evidence_links(candidates_path, candidates, errors)
+        _validate_s02a_facet_not_primary(candidates_path, candidates, errors)
+    if evidence is not None:
+        _validate_columns(evidence_path, evidence, S02A_CANDIDATE_EVIDENCE_COLUMNS, errors)
+    if doc_topics is not None:
+        _validate_columns(doc_topics_path, doc_topics, S02A_DOC_TOPIC_COLUMNS, errors)
+        _validate_s02a_by_doc_files(paths, doc_topics, errors)
+
+    _validate_readable(doc_jsonl_path, _read_jsonl_file, errors)
+    _validate_readable(ambiguity_path, _read_jsonl_file, errors)
+    _validate_readable(report_md_path, lambda path: path.read_text(encoding="utf-8"), errors)
+    _validate_readable(review_path, pd.read_csv, errors)
+    _validate_readable(distribution_path, pd.read_csv, errors)
+    _validate_readable(no_blocks_path, pd.read_csv, errors)
+
+    if report is not None:
+        processed_documents = _safe_int(report.get("processed_documents"), default=0)
+        if processed_documents > 0 and topic_units is not None and topic_units.empty:
+            errors.append(
+                {
+                    "artifact": str(topic_units_path),
+                    "error": "EmptyTopicUnits",
+                    "message": "topic_units.parquet is empty while S02A processed documents",
+                }
+            )
+        if doc_topics is not None and len(doc_topics) != processed_documents:
+            errors.append(
+                {
+                    "artifact": str(doc_topics_path),
+                    "error": "DocTopicCoverageMismatch",
+                    "message": (
+                        f"doc_topics rows={len(doc_topics)} but report processed_documents="
+                        f"{processed_documents}"
+                    ),
+                }
+            )
+        if report.get("partial") is True:
+            warnings.append(
+                {
+                    "warning": "PartialS02AOutput",
+                    "message": (
+                        "S02A report is marked partial because --limit or --doc-id was used."
+                    ),
+                }
+            )
+
+    return _validation_result("S02A", outputs, missing, errors, warnings=warnings)
 
 
 def _validation_result(
@@ -914,9 +1017,7 @@ def _block_metric_records(blocks: list[DocumentBlock]) -> list[dict[str, Any]]:
 
 def _read_required_parquet(path: Path, errors: list[dict[str, Any]]) -> pd.DataFrame | None:
     if not path.exists():
-        errors.append(
-            {"artifact": str(path), "error": "MissingArtifact", "message": str(path)}
-        )
+        errors.append({"artifact": str(path), "error": "MissingArtifact", "message": str(path)})
         return None
     try:
         return pd.read_parquet(path)
@@ -963,9 +1064,7 @@ def _validate_columns(
         )
 
 
-def _warn_no_blocks_documents(
-    normalized: pd.DataFrame, warnings: list[dict[str, Any]]
-) -> None:
+def _warn_no_blocks_documents(normalized: pd.DataFrame, warnings: list[dict[str, Any]]) -> None:
     if "normalization_status" not in normalized.columns:
         return
     no_blocks = normalized[
@@ -1135,9 +1234,90 @@ def _validate_nonempty_documents_have_blocks(
         )
 
 
-def _read_json_for_validation(
-    path: Path, errors: list[dict[str, Any]]
-) -> dict[str, Any] | None:
+def _validate_s02a_candidate_evidence_links(
+    candidates_path: Path, candidates: pd.DataFrame, errors: list[dict[str, Any]]
+) -> None:
+    if "candidate_id" not in candidates.columns or "evidence_block_ids" not in candidates.columns:
+        return
+    missing_evidence: list[dict[str, Any]] = []
+    for row in candidates.to_dict(orient="records"):
+        evidence_block_ids = _decode_json_value(row.get("evidence_block_ids"))
+        if evidence_block_ids:
+            continue
+        metadata = _decode_json_value(row.get("metadata")) or {}
+        if isinstance(metadata, dict) and metadata.get("no_evidence_reason"):
+            continue
+        missing_evidence.append(
+            {
+                "candidate_id": _safe_str(row.get("candidate_id")),
+                "doc_id": _safe_str(row.get("doc_id")),
+            }
+        )
+    if missing_evidence:
+        errors.append(
+            {
+                "artifact": str(candidates_path),
+                "error": "CandidatesMissingEvidence",
+                "message": f"{len(missing_evidence)} candidates have no evidence_block_ids",
+                "sample": missing_evidence[:20],
+            }
+        )
+
+
+def _validate_s02a_facet_not_primary(
+    candidates_path: Path, candidates: pd.DataFrame, errors: list[dict[str, Any]]
+) -> None:
+    required = {"role", "metadata", "facet_type", "candidate_id", "surface"}
+    if not required <= set(candidates.columns):
+        return
+    invalid: list[dict[str, Any]] = []
+    for row in candidates.to_dict(orient="records"):
+        if _safe_str(row.get("role")) != "document_primary_candidate":
+            continue
+        metadata = _decode_json_value(row.get("metadata")) or {}
+        is_generic = isinstance(metadata, dict) and bool(metadata.get("is_generic"))
+        if is_generic:
+            invalid.append(
+                {
+                    "candidate_id": _safe_str(row.get("candidate_id")),
+                    "surface": _safe_str(row.get("surface")),
+                    "facet_type": _safe_str(row.get("facet_type")),
+                }
+            )
+    if invalid:
+        errors.append(
+            {
+                "artifact": str(candidates_path),
+                "error": "GenericFacetPromotedToPrimary",
+                "message": f"{len(invalid)} generic/facet candidates are document primary",
+                "sample": invalid[:20],
+            }
+        )
+
+
+def _validate_s02a_by_doc_files(
+    paths: ProjectPaths, doc_topics: pd.DataFrame, errors: list[dict[str, Any]]
+) -> None:
+    if "doc_id" not in doc_topics.columns:
+        return
+    missing: list[str] = []
+    by_doc_dir = paths.tagging_dir / "by_doc"
+    for doc_id in doc_topics["doc_id"].dropna().astype(str).tolist():
+        target = by_doc_dir / f"{doc_id}.tag_candidates.json"
+        if not target.exists():
+            missing.append(str(target))
+    if missing:
+        errors.append(
+            {
+                "artifact": str(by_doc_dir),
+                "error": "MissingByDocTagCandidateJson",
+                "message": f"{len(missing)} processed docs are missing by-doc JSON",
+                "sample": missing[:20],
+            }
+        )
+
+
+def _read_json_for_validation(path: Path, errors: list[dict[str, Any]]) -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
@@ -1206,9 +1386,7 @@ def _json_marker_mask(dataframe: pd.DataFrame) -> pd.Series:
     return dataframe["plain_text"].fillna("").astype(str).map(has_json_markers)
 
 
-def _select_audit_samples(
-    normalized: pd.DataFrame, *, sample_size: int
-) -> dict[str, list[str]]:
+def _select_audit_samples(normalized: pd.DataFrame, *, sample_size: int) -> dict[str, list[str]]:
     selected: dict[str, list[str]] = {}
     if sample_size <= 0 or normalized.empty or "doc_id" not in normalized.columns:
         return selected
@@ -1242,8 +1420,10 @@ def _select_audit_samples(
         | _json_marker_mask(normalized)
         | normalized.get("normalization_status", pd.Series(dtype=str)).isin(["failed", "no_blocks"])
         | (
-            (normalized.get("markdown", pd.Series(dtype=str)).fillna("").astype(str).str.strip()
-            == "")
+            (
+                normalized.get("markdown", pd.Series(dtype=str)).fillna("").astype(str).str.strip()
+                == ""
+            )
             & (normalized.get("raw_length", pd.Series(dtype=int)).fillna(0).astype(int) > 0)
         )
     ]
@@ -1315,7 +1495,7 @@ def _render_sample_html(
     lines = [
         "<!doctype html>",
         "<html>",
-        "<head><meta charset=\"utf-8\"><title>" + escape(title) + "</title></head>",
+        '<head><meta charset="utf-8"><title>' + escape(title) + "</title></head>",
         "<body>",
         "<h1>" + escape(title) + "</h1>",
         "<h2>Normalized Markdown</h2>",
